@@ -1,202 +1,138 @@
-# ResponseRally
+<div align="center">
 
-A sophisticated AI benchmarking and research interface that allows users to compare responses from multiple AI providers (GPT-4, LLaMA, Mistral, Gemini, Copilot, and DeepSeek) side-by-side.
+<img src="./public/banner.png" alt="ResponseRally Banner" width="800">
 
-## Table of Contents
-- [Overview](#overview)
-- [Directory Structure](#directory-structure)
-- [Frontend Architecture](#frontend-architecture)
-- [Backend Architecture](#backend-architecture)
-- [Clear Separation of Concerns](#clear-separation-of-concerns)
-- [Getting Started](#getting-started)
-- [Features](#features)
+# ⚡ ResponseRally — AI Benchmarking Suite
 
-## Overview
+**Compare AI Models Side-by-Side: Latency, Cost, and Throughput in Real-Time.**
 
-ResponseRally consists of two main components:
-- **Frontend**: A React-based user interface for AI response comparison
-- **Backend**: A Node.js API server for managing AI provider requests and session management
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.0-61DAFB.svg)](https://reactjs.org/)
+[![Express](https://img.shields.io/badge/Express-5.0-white.svg)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)](https://www.mongodb.com/atlas)
 
-The architecture is designed with a clear separation of concerns where the frontend handles UI/UX and client-side state management while the backend handles business logic, data persistence, and AI provider integrations.
+[Key Features](#-key-features) • [Supported Models](#-supported-ai-models) • [System Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [API Guide](#-api-endpoints)
 
-## Directory Structure
+</div>
 
-```
-ResponseRally/
-├── Frontend/                     # React frontend application
-│   ├── public/                   # Static assets
-│   ├── src/
-│   │   ├── components/           # UI components (Header, ResponseGrid, etc.)
-│   │   │   ├── ui/               # Shadcn UI primitives
-│   │   │   ├── ConversationHistory.tsx
-│   │   │   ├── Header.tsx        # Header with theme toggle and session controls
-│   │   │   ├── MetricsPanel.tsx  # Performance metrics display
-│   │   │   ├── PromptInput.tsx   # Prompt input with provider toggles
-│   │   │   ├── ProviderBadge.tsx # Provider identification badges
-│   │   │   ├── ResponseCard.tsx  # Individual response display
-│   │   │   ├── ResponseGrid.tsx  # Grid layout for response comparison
-│   │   │   ├── StatusIndicator.tsx
-│   │   │   └── ComprehensiveMetricsMatrix.tsx  # Combined metrics matrix for all providers
-│   ├── hooks/
-│   │   ├── use-mobile.tsx
-│   │   ├── use-toast.ts
-│   │   └── useSession.ts     # Session state management (with backend API integration)
-│   │   ├── lib/
-│   │   │   ├── mockApi.ts      # Mock API for development (will be replaced by backend)
-│   │   │   └── utils.ts
-│   │   ├── pages/
-│   │   │   ├── Index.tsx       # Main application page
-│   │   │   └── NotFound.tsx
-│   │   ├── types/
-│   │   │   └── index.ts        # TypeScript type definitions
-│   │   ├── App.tsx              # Main App component (with ThemeProvider)
-│   │   ├── index.css            # CSS variables for dark/light themes
-│   │   └── main.tsx
-│   ├── components.json
-│   ├── index.html
-│   ├── package.json
-│   ├── tailwind.config.ts
-│   ├── tsconfig.json
-│   ├── vite.config.ts         # Vite configuration (port 5768)
-│   └── ...
-├── Backend/                     # Node.js backend API server
-│   ├── server.js               # Main server file
-│   ├── package.json            # Backend dependencies
-│   ├── .env                    # Environment variables
-│   ├── README.md               # Backend documentation
-│   ├── API_DOCUMENTATION.md    # Detailed API endpoints
-│   ├── INSTRUCTIONS.md         # Setup instructions
-│   ├── routes/
-│   │   └── api.js              # API route handlers
-│   ├── middleware/
-│   │   └── ai-providers.js     # AI provider integration logic
-│   └── database/
-│       └── db.js               # Database abstraction layer
-└── README.md                 # This file (main project documentation)
+---
+
+## ✨ Key Features
+
+ResponseRally is a precision tool designed for AI researchers and developers to evaluate model performance under real-world conditions.
+
+- 🚀 **Parallel Execution**: Submit a single prompt to N models simultaneously; no sequential waiting.
+- 📊 **Metrics Performance Matrix**: Instant comparison of Latency (ms), Token Count, Throughput (tokens/s), and Cost ($).
+- 🦴 **Skeleton UI**: Intelligent placeholder cards ensure a smooth UX while waiting for high-latency models.
+- 🥇 **Select Winner**: Single-click "Best Response" selection to focus on quality while archiving metrics.
+- 📂 **Persistent Sessions**: Full conversation history and user performance statistics saved via MongoDB.
+- 🔑 **Custom Providers**: Add any OpenAI-compatible API (Arxiv, DeepSeek, etc.) via your user profile.
+
+---
+
+## 🤖 Supported AI Models
+
+| Model Name | Model ID | Provider | Cost Mode |
+|:--- |:--- |:--- |:--- |
+| **Arcee Trinity** | `arcee-ai/trinity-large-preview:free` | OpenRouter | ✅ Free |
+| **StepFun 3.5** | `stepfun/step-3.5-flash:free` | OpenRouter | ✅ Free |
+| **Mistral Large** | `mistralai/mistral-large-latest` | Mistral AI | 💰 Paid |
+| **GLM-4.5 Air** | `z-ai/glm-4.5-air:free` | OpenRouter | ✅ Free |
+| **Nemotron-3** | `nvidia/nemotron-3-nano-30b-a3b:free` | OpenRouter | ✅ Free |
+
+---
+
+## 🏗️ System Architecture
+
+ResponseRally follows a modern full-stack decoupled architecture.
+
+```mermaid
+graph TD
+    subgraph "Frontend (React + Vite)"
+        UI[User Interface] --> State[React State Management]
+        State --> Bench[executeBenchmark]
+        Bench --> Adapters[Request Adapters]
+        Adapters --> Proxy[API Proxy/Direct Call]
+    end
+
+    subgraph "Backend (Express + Node)"
+        Server[Express Server] --> Auth[JWT Auth & OTP]
+        Server --> DB[(MongoDB Atlas)]
+        Server --> ProxyRoute[Proxy Endpoints]
+    end
+
+    subgraph "External Providers"
+        Proxy --> OpenRouter[OpenRouter API]
+        Proxy --> Mistral[Mistral AI API]
+        Proxy --> Custom[Custom OpenAI-Compatible]
+    end
+    
+    DB --- User[User Stats & History]
 ```
 
-## Frontend Architecture
+### 🗂️ Directory Highlights
 
-The frontend is built with React, TypeScript, and Vite, featuring:
+- `server/`: Express backend with Mongoose models for Users and Conversations.
+- `src/pages/Index.tsx`: The "Brain" of the application handling parallel racing.
+- `src/lib/adapters/`: Normalization layer for different AI provider responses.
+- `src/components/MetricsMatrix.tsx`: Specialized table for side-by-side data analysis.
 
-### Key Components
-- **Header.tsx**: Application header with theme toggle (sun/moon icons), Export and Flow icons, and session controls
-- **useSession.ts**: Centralized session state management hook that handles all AI comparison logic
-- **ResponseGrid.tsx**: Horizontal scrolling grid for displaying multiple AI responses
-- **ResponseCard.tsx**: Individual response cards with metrics and selection functionality
-- **PromptInput.tsx**: Input component with provider toggling capabilities
-- **MetricsPanel.tsx**: Performance metrics display (latency, tokens, etc.)
-- **ComprehensiveMetricsMatrix.tsx**: Detailed metrics matrix display with expanded metrics (latency, tokens, efficiency, etc.)
-- **ConversationHistory.tsx**: Scrollable conversation history display with vertical scrolling for better UX
+---
 
-### Styling & Themes
-- **index.css**: Defines CSS variables for both dark and light themes
-- **Dark Theme**: Technical aesthetic with blue/cyan accents
-- **Light Theme**: Green-yellow-white gradient theme (as requested)
-- **Theme Transition**: Smooth 300ms color transitions when switching themes
-
-### API Integration
-- **useSession.ts**: Contains commented API service functions ready for backend integration
-- **Fallback System**: Maintains mock API functionality until backend is connected
-- **Real-time Updates**: Prepared for WebSocket/SSE integration
-
-### Frontend Responsibilities
-- **UI/UX Rendering**: All visual elements, layouts, and user interactions
-- **State Management**: Client-side state management for session data
-- **User Input Handling**: Processing user prompts and provider selections
-- **API Communication**: Making requests to backend API endpoints
-- **Real-time Updates**: Updating UI based on backend responses
-- **Theme Management**: Handling dark/light theme switching
-- **Session State**: Managing local session state with backend synchronization
-
-## Backend Architecture
-
-The backend is built with Node.js, Express, and follows a modular architecture:
-
-### Core Files
-- **server.js**: Main server entry point with middleware and route configuration
-- **routes/api.js**: All API endpoints for session management and AI interactions
-- **middleware/ai-providers.js**: Integration layer for various AI providers
-- **database/db.js**: Abstraction layer for database operations (currently in-memory)
-
-### API Endpoints
-- **Session Management**: `/api/v1/session` (create, get, reset)
-- **Prompt Processing**: `/api/v1/prompt` (submit to multiple providers)
-- **Response Management**: `/api/v1/session/:id/select-response`, `/toggle-provider`, `/retry-provider`
-- **Health Check**: `/health`
-
-### Features
-- **Rate Limiting**: Prevents API abuse with 100 requests per 15 minutes
-- **Session Management**: Maintains conversation history and context
-- **Provider Integration**: Ready for OpenAI, Google, Meta, Mistral, Microsoft, and DeepSeek APIs
-- **Real-time Updates**: Prepared for WebSocket integration
-
-### Backend Responsibilities
-- **Session Management**: Creating, storing, and managing session data
-- **AI Provider Integration**: Handling communication with external AI services
-- **Response Processing**: Collecting and aggregating responses from multiple providers
-- **Data Persistence**: Storing session history and conversation context
-- **Security & Validation**: Rate limiting, input validation, and API key management
-- **Business Logic**: Processing requests and orchestrating responses
-- **Metrics Collection**: Gathering performance metrics for responses
-
-## Clear Separation of Concerns
-
-ResponseRally follows a well-defined separation of concerns between frontend and backend:
-
-| Aspect | Frontend Responsibility | Backend Responsibility |
-|--------|------------------------|------------------------|
-| **User Interface** | Rendering UI components, layouts, styling | No UI rendering |
-| **State Management** | Client-side session state, UI state | Server-side session data, persistent storage |
-| **API Communication** | Making HTTP requests to backend | Receiving and processing requests |
-| **User Interaction** | Handling clicks, form submissions, user events | Processing business logic from user actions |
-| **Data Validation** | Client-side validation, UX feedback | Server-side validation, security checks |
-| **Authentication** | UI for login, token storage (if implemented) | Token generation, validation, user management |
-| **AI Integration** | Displaying responses, metrics | Communicating with AI providers, aggregating responses |
-| **Performance** | Optimizing UI rendering, caching | Optimizing API responses, database queries |
-| **Error Handling** | UI error states, user feedback | API error responses, logging |
-
-This clear division ensures that:
-- The frontend focuses solely on presentation and user experience
-- The backend handles all business logic, data operations, and external service integrations
-- Both components communicate through well-defined API contracts
-- Each component can be developed, tested, and maintained independently
-- Scalability is achieved by scaling backend services separately from frontend delivery
-
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js and npm
 
-### Frontend Setup
-1. Navigate to the `Frontend` directory
-2. Install dependencies: `npm install`
-3. Start the development server: `npm run dev`
+- **Node.js** ≥ 18 or **Bun**
+- **MongoDB** (Local or Cloud instance)
+- API Keys: [OpenRouter](https://openrouter.ai) & [Mistral AI](https://console.mistral.ai)
 
-### Backend Setup
-1. Navigate to the `Backend` directory
-2. Install dependencies: `npm install`
-3. Configure environment variables in `.env`
-4. Start the server: `npm run dev`
+### Quick Start
 
-### Configuration
-- The frontend runs on port **5768** by default
-- The backend runs on port **5000** by default
-- To change ports, update `vite.config.ts` (frontend) or `.env` (backend)
+1. **Clone & Install**
+   ```bash
+   git clone https://github.com/your-username/response-arena.git
+   cd response-arena
+   npm install
+   ```
 
-### Running the Application
-1. Start the backend server first: `cd Backend && npm run dev`
-2. In a separate terminal, start the frontend: `cd Frontend && npm run dev`
-3. The application will be available at http://localhost:5768
+2. **Environment Configuration**
+   Create a `.env` file based on `.env.example`:
+   ```env
+   MONGODB_URI=your_mongo_url
+   JWT_SECRET=your_jwt_secret
+   OPENROUTER_API_KEY=your_key
+   MISTRAL_API_KEY=your_key
+   EMAIL_USER=your_email
+   EMAIL_PASS=your_app_password
+   ```
 
-## Features
-- Multi-provider AI response comparison
-- Real-time streaming display with performance metrics
-- Conversation context management with scrollable history
-- Provider management and toggling
-- Error handling with retry functionality
-- Dark/Light theme with smooth transitions
-- Enhanced header with Export and Flow icons
-- Responsive design for all screen sizes
-- Session persistence and management
-- Ready for backend integration
+3. **Launch**
+   ```bash
+   # Run both frontend and backend concurrently
+   npm run dev:both
+   ```
+
+---
+
+## 🔌 API Endpoints
+
+| Method | Endpoint | Auth | Purpose |
+|:--- |:--- |:--- |:--- |
+| `POST` | `/api/auth/register` | ❌ | Create account + Send OTP |
+| `POST` | `/api/auth/login` | ❌ | Authenticate & get JWT |
+| `GET` | `/api/conversations` | ✅ | Fetch user chat history |
+| `POST` | `/api/proxy/chat` | ✅ | Unified agentic API proxy |
+
+---
+
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+<div align="center">
+Built with ❤️ by the ResponseRally Team
+</div>
