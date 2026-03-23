@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_FCGgxB94PfWj@ep-shiny-fire-ad8uoc62.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  password          String
+  name              String
+  otp               String?
+  otpExpires        DateTime?
+  isVerified        Boolean        @default(false)
+  totalPrompts      Int            @default(0)
+  totalTokensUsed   Int            @default(0)
+  totalCostEstimate Float          @default(0)
+  favoriteModel     String?
+  modelWins         Json           @default("{}")
+  modelMetrics      Json           @default("{}")
+  performanceHistory Json          @default("[]")
+  customProviders   Json           @default("[]")
+  recentSelections  Json           @default("[]")
+  optimizerModelId  String         @default("arcee-ai/trinity-large-preview:free")
+  optimizerProvider String         @default("OpenRouter")
+  conversations     Conversation[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Conversation {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  title             String
+  benchmarkingMode  String   @default("full-context")
+  groupId           String?
+  groupLabel        String?
+  slidingWindowSize Int?
+  messages          Json     @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+}
