@@ -11,6 +11,7 @@ import { ChatMessage, Conversation, ModelResponse, UserProfile, ProviderConfig, 
 import { simulateStreaming, generateMockResponses } from "@/lib/mockData";
 import { executeBenchmark, executeProxyBenchmark, optimizePromptWithAI } from "@/lib/aiClient";
 import { cn } from "@/lib/utils";
+import { API_URL } from "@/lib/config";
 
 const Index = () => {
   // Auth state
@@ -25,7 +26,7 @@ const Index = () => {
       if (!token) return;
 
       try {
-        const response = await fetch('/api/auth/me', {
+        const response = await fetch(`${API_URL}/api/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -153,7 +154,7 @@ const Index = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('/api/conversations', {
+      const response = await fetch(`${API_URL}/api/conversations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -190,7 +191,7 @@ const Index = () => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        await fetch('/api/auth/profile', {
+        await fetch(`${API_URL}/api/auth/profile`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -219,7 +220,7 @@ const Index = () => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        await fetch('/api/auth/profile', {
+        await fetch(`${API_URL}/api/auth/profile`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -334,7 +335,7 @@ const Index = () => {
       const title = modes.length > 1 ? `${name} — ${modeLabels[mode]}` : name;
       try {
         console.log('Sending creation request:', { mode, title, groupId, slidingWindowSize });
-        const response = await fetch('/api/conversations', {
+        const response = await fetch(`${API_URL}/api/conversations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -377,7 +378,7 @@ const Index = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`/api/conversations/${id}`, {
+      const response = await fetch(`${API_URL}/api/conversations/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -406,7 +407,7 @@ const Index = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`/api/conversations/${id}`, {
+      const response = await fetch(`${API_URL}/api/conversations/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -439,7 +440,7 @@ const Index = () => {
     if (!convId) {
       const newConvTitle = prompt.slice(0, 40) + (prompt.length > 40 ? "..." : "");
       try {
-        const response = await fetch('/api/conversations', {
+        const response = await fetch(`${API_URL}/api/conversations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -659,7 +660,7 @@ const Index = () => {
       if (token && convId) {
         // We'll fetch the most current metadata fields just before saving
         // This avoids race conditions where state might be stale
-        fetch(`/api/conversations/${convId}`, {
+        fetch(`${API_URL}/api/conversations/${convId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -720,7 +721,7 @@ const Index = () => {
         };
 
         if (token && updatedProfile.id) {
-          fetch(`/api/conversations/update-stats/${updatedProfile.id}`, {
+          fetch(`${API_URL}/api/conversations/update-stats/${updatedProfile.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -815,7 +816,7 @@ const Index = () => {
         // Persist stats update
         const token = localStorage.getItem('token');
         if (token && updatedProfile.id) {
-          fetch(`/api/conversations/update-stats/${updatedProfile.id}`, {
+          fetch(`${API_URL}/api/conversations/update-stats/${updatedProfile.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -849,7 +850,7 @@ const Index = () => {
     try {
       const token = localStorage.getItem('token');
       if (token && targetConvId) {
-        await fetch(`/api/conversations/${targetConvId}`, {
+        await fetch(`${API_URL}/api/conversations/${targetConvId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -886,7 +887,7 @@ const Index = () => {
     try {
       const token = localStorage.getItem('token');
       if (token && targetConvId) {
-        await fetch(`/api/conversations/${targetConvId}`, {
+        await fetch(`${API_URL}/api/conversations/${targetConvId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1050,7 +1051,7 @@ const Index = () => {
           const token = localStorage.getItem('token');
           if (token && profile.id) {
             try {
-              await fetch(`/api/conversations/update-stats/${profile.id}`, {
+              await fetch(`${API_URL}/api/conversations/update-stats/${profile.id}`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

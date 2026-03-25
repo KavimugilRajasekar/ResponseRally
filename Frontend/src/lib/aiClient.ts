@@ -1,6 +1,7 @@
 import { ProviderConfig, BenchmarkingSettings, ModelResponse, getModelTemperature } from "./types";
 import { adaptRequest } from "./adapters/requestAdapters";
 import { normalizeResponse } from "./adapters/responseNormalizers";
+import { API_URL } from "./config";
 
 /**
  * fetchWithRetry - A wrapper around fetch that retries up to maxRetries times
@@ -161,7 +162,7 @@ export async function executeProxyBenchmark(
             : "https://openrouter.ai/api/v1");
         const proxyEndpoint = options?.endpoint || "/chat/completions";
 
-        const response = await fetchWithRetry("/api/proxy/chat", {
+        const response = await fetchWithRetry(`${API_URL}/api/proxy/chat`, {
             method: "POST",
             headers,
             body: JSON.stringify({
@@ -266,7 +267,7 @@ export async function optimizePromptWithAI(
     if (jwtToken) headers["Authorization"] = `Bearer ${jwtToken}`;
 
     try {
-        const response = await fetchWithRetry("/api/proxy/chat", {
+        const response = await fetchWithRetry(`${API_URL}/api/proxy/chat`, {
             method: "POST",
             headers,
             body: JSON.stringify({

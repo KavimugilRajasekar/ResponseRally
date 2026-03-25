@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { API_URL } from "@/lib/config";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
     try {
       if (step === "credentials") {
         // Submit credentials to backend
-        const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
+        const endpoint = mode === "register" ? `${API_URL}/api/auth/register` : `${API_URL}/api/auth/login`;
         const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -60,7 +61,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
         }
       } else {
         // Verify OTP
-        const endpoint = mode === "register" ? "/api/auth/verify-otp" : "/api/auth/verify-login-otp";
+        const endpoint = mode === "register" ? `${API_URL}/api/auth/verify-otp` : `${API_URL}/api/auth/verify-login-otp`;
         const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -137,7 +138,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
               setIsLoading(true);
               setMessage("");
               try {
-                const response = await fetch("/api/auth/resend-otp", {
+                const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ email }),
