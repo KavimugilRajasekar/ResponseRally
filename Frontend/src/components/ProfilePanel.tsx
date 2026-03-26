@@ -136,8 +136,12 @@ export function ProfilePanel({ isOpen, onClose, profile, onUpdateProviders, onUp
     <div className="fixed inset-0 z-50 flex flex-col bg-background animate-fade-in">
       {/* ── Top bar ── */}
       <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-card/90 backdrop-blur-md px-6 py-4 shrink-0">
-        <button onClick={onClose} className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-all">
-          <ArrowLeft className="h-4 w-4" /> Back
+        <button 
+          onClick={onClose} 
+          className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-all"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="h-5 w-px bg-border" />
         <div className="flex items-center gap-3">
