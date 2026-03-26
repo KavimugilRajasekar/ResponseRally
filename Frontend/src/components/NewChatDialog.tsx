@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BenchmarkingMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Layers, GitMerge, MessageSquarePlus, SlidersHorizontal } from "lucide-react";
+import { Layers, GitMerge, MessageSquarePlus, SlidersHorizontal, Database, SquareStack, Zap } from "lucide-react";
 
 interface NewChatDialogProps {
   isOpen: boolean;
@@ -15,26 +15,26 @@ interface NewChatDialogProps {
   onCreate: (name: string, modes: BenchmarkingMode[], slidingWindowSize?: number) => void;
 }
 
-const MODE_INFO: { id: BenchmarkingMode; label: string; desc: string; icon: string; colorVar: string }[] = [
+const MODE_INFO: { id: BenchmarkingMode; label: string; desc: string; icon: any; colorVar: string }[] = [
   {
     id: "full-context",
     label: "Full Context Mode",
     desc: "Sends the entire conversation history with every prompt for maximum coherence.",
-    icon: "📚",
+    icon: Database,
     colorVar: "mode-full-context",
   },
   {
     id: "sliding-window",
     label: "Sliding Window Mode",
     desc: "Sends only the last N messages as context, balancing relevance and token cost.",
-    icon: "🪟",
+    icon: SquareStack,
     colorVar: "mode-sliding-window",
   },
   {
     id: "stateless",
     label: "Stateless Mode",
     desc: "Each prompt is sent in isolation with no prior context — pure single-turn benchmarking.",
-    icon: "⚡",
+    icon: Zap,
     colorVar: "mode-stateless",
   },
 ];
@@ -156,7 +156,7 @@ export function NewChatDialog({ isOpen, onClose, onCreate }: NewChatDialogProps)
                       <RadioGroupItem value={mode.id} className="mt-0.5 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm">{mode.icon}</span>
+                          <mode.icon className={cn("h-4 w-4", isSelected ? styles.accent : "text-muted-foreground")} />
                           <span className={cn("text-xs font-semibold", isSelected ? styles.accent : "text-foreground")}>
                             {mode.label}
                           </span>
@@ -191,7 +191,7 @@ export function NewChatDialog({ isOpen, onClose, onCreate }: NewChatDialogProps)
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm">{mode.icon}</span>
+                          <mode.icon className={cn("h-4 w-4", checked ? styles.accent : "text-muted-foreground")} />
                           <span className={cn("text-xs font-semibold", checked ? styles.accent : "text-foreground")}>
                             {mode.label}
                           </span>
