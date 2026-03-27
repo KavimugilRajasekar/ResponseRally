@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { API_URL } from "@/lib/config";
+import { API_URL, ALLOW_LOCAL_LOGIN, NIFO_LOGIN_URL } from "@/lib/config";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,6 +21,19 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
   const [message, setMessage] = useState("");
 
   if (!isOpen) return null;
+
+  // In SSO mode (ALLOW_LOCAL_LOGIN=false), redirect to NiFo instead of showing the form
+  if (!ALLOW_LOCAL_LOGIN) {
+    window.location.href = NIFO_LOGIN_URL;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-3 text-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p className="text-sm">Redirecting to NiFo login…</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {

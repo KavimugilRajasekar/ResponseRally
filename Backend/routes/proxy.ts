@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { validateSSO } from '../utils/sso.js';
 
 const router = express.Router();
 
@@ -8,15 +9,21 @@ const router = express.Router();
 // This avoids CORS issues and keeps API keys secure on the server
 router.post('/chat', async (req: Request, res: Response) => {
     try {
-        // Optional: require auth token to use the proxy
-        const authHeader = req.header('Authorization');
-        const token = authHeader?.replace('Bearer ', '');
-
-        if (token) {
-            try {
-                jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
-            } catch {
-                return res.status(401).json({ message: 'Invalid token' });
+        // Require auth: SSO cookie (when SSO_ENABLED=true) or JWT Bearer (local login)
+        if (process.env.SSO_ENABLED === 'true') {
+            const result = await validateSSO(req.headers.cookie || '');
+            if (result.status !== 'ok') {
+                return res.status(401).json({ message: 'Authentication required' });
+            }
+        } else {
+            const authHeader = req.header('Authorization');
+            const token = authHeader?.replace('Bearer ', '');
+            if (token) {
+                try {
+                    jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
+                } catch {
+                    return res.status(401).json({ message: 'Invalid token' });
+                }
             }
         }
 

@@ -11,7 +11,7 @@ import { ChatMessage, Conversation, ModelResponse, UserProfile, ProviderConfig, 
 import { simulateStreaming, generateMockResponses } from "@/lib/mockData";
 import { executeBenchmark, executeProxyBenchmark, optimizePromptWithAI } from "@/lib/aiClient";
 import { cn } from "@/lib/utils";
-import { API_URL } from "@/lib/config";
+import { API_URL, ALLOW_LOCAL_LOGIN, TYN_LOGOUT_URL, NIFO_LOGIN_URL } from "@/lib/config";
 
 const Index = () => {
   // Auth state
@@ -19,74 +19,79 @@ const Index = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [selectedModels, setSelectedModels] = useState<string[]>(AI_PROVIDERS.map(p => p.name));
 
-  // Persistence: Check for token on mount
+  // Bootstrap auth on mount — SSO cookie (when SSO_ENABLED) or JWT Bearer (local login)
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
-      if (!token) return;
-
       try {
         const response = await fetch(`${API_URL}/api/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          credentials: 'include',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
 
-        if (response.ok) {
-          const { user } = await response.json();
-          setIsLoggedIn(true);
-
-          // Normalize metrics from MongoDB Map to plain object
-          const modelWins = user.modelWins instanceof Map
-            ? Object.fromEntries(user.modelWins)
-            : (user.modelWins || {});
-
-          const modelMetrics = user.modelMetrics instanceof Map
-            ? Object.fromEntries(user.modelMetrics)
-            : (user.modelMetrics || {});
-
-          const performanceHistory = Array.isArray(user.performanceHistory)
-            ? user.performanceHistory.map((h: any) => ({
-              date: h.date,
-              metrics: h.metrics instanceof Map ? Object.fromEntries(h.metrics) : (h.metrics || {})
-            }))
-            : [];
-
-          setProfile({
-            id: user.id || user._id || "",
-            email: user.email || "",
-            name: user.name || "",
-            customProviders: user.customProviders || [],
-            totalPrompts: user.totalPrompts || 0,
-            totalTokensUsed: user.totalTokensUsed || 0,
-            totalCostEstimate: user.totalCostEstimate || 0,
-            favoriteModel: user.favoriteModel || "",
-            modelWins,
-            modelMetrics,
-            performanceHistory,
-            optimizerModelId: user.optimizerModelId || "arcee-ai/trinity-large-preview:free",
-            optimizerProvider: user.optimizerProvider || "OpenRouter",
-            recentSelections: user.recentSelections || [],
-          });
-
-          // Initialize selected models with standard + custom active ones
-          // Initialize selected models with standard + custom active ones (filtering out deactivated)
-          const customModelNames = user.customProviders
-            ?.filter((k: any) => k.isActive)
-            .map((k: any) => k.providerName) || [];
-
-          const allPotentialModels = [...AI_PROVIDERS.map(p => p.name), ...customModelNames];
-          const activeModels = allPotentialModels.filter(name => {
-            const metrics = modelMetrics[name];
-            return metrics ? metrics.isActive !== false : true; // Default to true if no metrics yet
-          });
-
-          setSelectedModels(activeModels);
-
-          loadConversations();
-        } else if (response.status === 401) {
-          localStorage.removeItem('token');
+        if (response.status === 403) {
+          // Authenticated centrally but not onboarded here
+          window.location.href = '/not-authorized';
+          return;
         }
+
+        if (!response.ok) {
+          localStorage.removeItem('token');
+          if (!ALLOW_LOCAL_LOGIN) {
+            window.location.href = NIFO_LOGIN_URL;
+          }
+          return;
+        }
+
+        const { user } = await response.json();
+        setIsLoggedIn(true);
+
+        // Normalize metrics from MongoDB Map to plain object
+        const modelWins = user.modelWins instanceof Map
+          ? Object.fromEntries(user.modelWins)
+          : (user.modelWins || {});
+
+        const modelMetrics = user.modelMetrics instanceof Map
+          ? Object.fromEntries(user.modelMetrics)
+          : (user.modelMetrics || {});
+
+        const performanceHistory = Array.isArray(user.performanceHistory)
+          ? user.performanceHistory.map((h: any) => ({
+            date: h.date,
+            metrics: h.metrics instanceof Map ? Object.fromEntries(h.metrics) : (h.metrics || {})
+          }))
+          : [];
+
+        setProfile({
+          id: user.id || user._id || "",
+          email: user.email || "",
+          name: user.name || "",
+          customProviders: user.customProviders || [],
+          totalPrompts: user.totalPrompts || 0,
+          totalTokensUsed: user.totalTokensUsed || 0,
+          totalCostEstimate: user.totalCostEstimate || 0,
+          favoriteModel: user.favoriteModel || "",
+          modelWins,
+          modelMetrics,
+          performanceHistory,
+          optimizerModelId: user.optimizerModelId || "arcee-ai/trinity-large-preview:free",
+          optimizerProvider: user.optimizerProvider || "OpenRouter",
+          recentSelections: user.recentSelections || [],
+        });
+
+        // Initialize selected models with standard + custom active ones (filtering out deactivated)
+        const customModelNames = user.customProviders
+          ?.filter((k: any) => k.isActive)
+          .map((k: any) => k.providerName) || [];
+
+        const allPotentialModels = [...AI_PROVIDERS.map(p => p.name), ...customModelNames];
+        const activeModels = allPotentialModels.filter(name => {
+          const metrics = modelMetrics[name];
+          return metrics ? metrics.isActive !== false : true;
+        });
+
+        setSelectedModels(activeModels);
+        loadConversations();
       } catch (error) {
         console.error('Initial auth check failed:', error);
       }
@@ -152,12 +157,9 @@ const Index = () => {
   const loadConversations = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
-
       const response = await fetch(`${API_URL}/api/conversations`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
       if (response.ok) {
@@ -189,13 +191,14 @@ const Index = () => {
     setSelectedModels(prev => [...prev, provider.providerName]);
 
     const token = localStorage.getItem('token');
-    if (token) {
+    if (isLoggedIn) {
       try {
         await fetch(`${API_URL}/api/auth/profile`, {
           method: 'PUT',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             customProviders: updatedProviders
@@ -218,13 +221,14 @@ const Index = () => {
     });
 
     const token = localStorage.getItem('token');
-    if (token) {
+    if (isLoggedIn) {
       try {
         await fetch(`${API_URL}/api/auth/profile`, {
           method: 'PUT',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({ customProviders: providers })
         });
@@ -289,7 +293,15 @@ const Index = () => {
     loadConversations();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // In SSO mode, call central TYN logout to clear the shared cookie
+    if (!ALLOW_LOCAL_LOGIN) {
+      try {
+        await fetch(TYN_LOGOUT_URL, { method: 'POST', credentials: 'include' });
+      } catch { /* best effort */ }
+      window.location.href = NIFO_LOGIN_URL;
+      return;
+    }
     localStorage.removeItem('token');
     setIsLoggedIn(false);
     setShowAuth(false);
@@ -320,7 +332,6 @@ const Index = () => {
   const handleCreateChat = useCallback(async (name: string, modes: BenchmarkingMode[], slidingWindowSize?: number) => {
     setShowNewChatDialog(false);
     const token = localStorage.getItem('token');
-    if (!token) return;
 
     const groupId = modes.length > 1 ? `group-${Date.now()}` : undefined;
     const modeLabels: Record<BenchmarkingMode, string> = {
@@ -337,7 +348,8 @@ const Index = () => {
         console.log('Sending creation request:', { mode, title, groupId, slidingWindowSize });
         const response = await fetch(`${API_URL}/api/conversations`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
           body: JSON.stringify({
             title,
             messages: [],
@@ -376,13 +388,13 @@ const Index = () => {
   const handleRenameConv = useCallback(async (id: string, title: string) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
 
       const response = await fetch(`${API_URL}/api/conversations/${id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ title })
       });
@@ -405,13 +417,11 @@ const Index = () => {
   const handleDeleteConv = useCallback(async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
 
       const response = await fetch(`${API_URL}/api/conversations/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
       if (response.ok) {
@@ -442,9 +452,10 @@ const Index = () => {
       try {
         const response = await fetch(`${API_URL}/api/conversations`, {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             title: newConvTitle,
@@ -815,12 +826,13 @@ const Index = () => {
 
         // Persist stats update
         const token = localStorage.getItem('token');
-        if (token && updatedProfile.id) {
+        if (updatedProfile.id) {
           fetch(`${API_URL}/api/conversations/update-stats/${updatedProfile.id}`, {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
             body: JSON.stringify({
               totalPrompts: updatedProfile.totalPrompts,
@@ -849,12 +861,13 @@ const Index = () => {
 
     try {
       const token = localStorage.getItem('token');
-      if (token && targetConvId) {
+      if (targetConvId) {
         await fetch(`${API_URL}/api/conversations/${targetConvId}`, {
           method: 'PUT',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             messages: updatedMessages
@@ -886,12 +899,13 @@ const Index = () => {
 
     try {
       const token = localStorage.getItem('token');
-      if (token && targetConvId) {
+      if (targetConvId) {
         await fetch(`${API_URL}/api/conversations/${targetConvId}`, {
           method: 'PUT',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             messages: updatedMessages
@@ -1049,13 +1063,14 @@ const Index = () => {
           setProfile(updatedProfile);
 
           const token = localStorage.getItem('token');
-          if (token && profile.id) {
+          if (profile.id) {
             try {
               await fetch(`${API_URL}/api/conversations/update-stats/${profile.id}`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 },
                 body: JSON.stringify({
                   ...updatedProfile,

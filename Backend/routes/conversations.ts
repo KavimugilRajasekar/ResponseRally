@@ -1,11 +1,31 @@
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
+import { validateSSO } from '../utils/sso.js';
 
 const router = express.Router();
 
-// Middleware to authenticate user
+// Middleware to authenticate user — SSO cookie (when SSO_ENABLED=true) or JWT Bearer fallback
 const authenticateUser = async (req: Request, res: Response, next: any) => {
+  // SSO path
+  if (process.env.SSO_ENABLED === 'true') {
+    try {
+      const result = await validateSSO(req.headers.cookie || '');
+      if (result.status === 'not_onboarded') {
+        return res.status(403).json({ message: 'You are not onboarded in ResponseRally' });
+      }
+      if (result.status === 'unauthorized') {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      (req as any).userId = result.userId;
+      return next();
+    } catch (error) {
+      console.error('SSO auth error:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  // JWT Bearer fallback
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) {
@@ -23,7 +43,7 @@ const authenticateUser = async (req: Request, res: Response, next: any) => {
     next();
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(401).json({ message: 'Invalid token' });
   }
 };
 

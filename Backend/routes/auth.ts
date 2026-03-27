@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { prisma } from '../config/db.js';
 import { sendOTP } from '../utils/email.js';
 import rateLimit from 'express-rate-limit';
+import { validateSSO } from '../utils/sso.js';
 
 const router = express.Router();
 
@@ -145,6 +146,9 @@ router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
 
 // Login user
 router.post('/login', authLimiter, async (req: Request, res: Response) => {
+  if (process.env.ALLOW_LOCAL_LOGIN === 'false') {
+    return res.status(403).json({ message: 'Local login is disabled. Please log in via NiFo.' });
+  }
   try {
     const { email, password } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
@@ -203,8 +207,28 @@ router.post('/verify-login-otp', authLimiter, async (req: Request, res: Response
   }
 });
 
-// Get current user
+// Get current user — SSO cookie (when SSO_ENABLED=true) or JWT Bearer fallback
 router.get('/me', async (req: Request, res: Response) => {
+  // SSO path
+  if (process.env.SSO_ENABLED === 'true') {
+    try {
+      const result = await validateSSO(req.headers.cookie || '');
+      if (result.status === 'not_onboarded') {
+        return res.status(403).json({ message: 'You are not onboarded in ResponseRally' });
+      }
+      if (result.status === 'unauthorized') {
+        return res.status(401).json({ message: 'Session invalid or expired' });
+      }
+      const user = await prisma.user.findUnique({ where: { id: result.userId } });
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      return res.json({ user: serializeUser(user) });
+    } catch (error) {
+      console.error('SSO /me error:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  // JWT Bearer fallback (local login mode)
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) return res.status(401).json({ message: 'Access denied' });
@@ -213,10 +237,10 @@ router.get('/me', async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json({ user: serializeUser(user) });
+    return res.json({ user: serializeUser(user) });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(401).json({ message: 'Invalid token' });
   }
 });
 

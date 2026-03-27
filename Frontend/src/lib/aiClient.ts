@@ -164,6 +164,7 @@ export async function executeProxyBenchmark(
 
         const response = await fetchWithRetry(`${API_URL}/api/proxy/chat`, {
             method: "POST",
+            credentials: 'include',
             headers,
             body: JSON.stringify({
                 provider: providerName,
