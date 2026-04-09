@@ -12,7 +12,13 @@ const authenticateUser = async (req: Request, res: Response, next: any) => {
       return res.status(401).json({ message: 'Access denied' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key') as { userId: string };
+    let decoded: { userId: string };
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key') as { userId: string };
+    } catch (jwtError) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
 
     if (!user) {
