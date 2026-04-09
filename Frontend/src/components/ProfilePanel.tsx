@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, Key, Eye, EyeOff, Plus, Trash2, BarChart3, TrendingUp, DollarSign, Zap, Trophy, Cpu, ChevronLeft, ChevronRight, Award, Activity, Clock, Target } from "lucide-react";
+import { ArrowLeft, Key, Eye, EyeOff, Plus, Trash2, BarChart3, TrendingUp, IndianRupee, Zap, Trophy, Cpu, ChevronLeft, ChevronRight, Award, Activity, Clock, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AI_PROVIDERS, UserProfile, ProviderConfig } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -201,7 +201,7 @@ export function ProfilePanel({ isOpen, onClose, profile, onUpdateProviders, onUp
                   <StatCard icon={BarChart3} label="Total Benchmarks" value={profile.totalPrompts.toString()} color="text-primary" />
                   <StatCard icon={Trophy} label="Best Selections" value={totalWins.toString()} color="text-metric-positive" />
                   <StatCard icon={Zap} label="Tokens Used" value={profile.totalTokensUsed.toLocaleString()} color="text-metric-warning" />
-                  <StatCard icon={DollarSign} label="Total Cost" value={`$${profile.totalCostEstimate.toFixed(2)}`} color="text-accent" />
+                  <StatCard icon={IndianRupee} label="Total Cost" value={`₹${(profile.totalCostEstimate * 83).toFixed(2)}`} color="text-accent" />
                 </div>
 
                 {/* ── Prompt Optimizer Settings ── */}
@@ -548,7 +548,7 @@ export function ProfilePanel({ isOpen, onClose, profile, onUpdateProviders, onUp
                       <div className="flex gap-4 text-[9px] font-mono text-muted-foreground shrink-0">
                         <span>{(p.maxTokens / 1000).toFixed(0)}k ctx</span>
                         <span className="text-primary">{p.provider}</span>
-                        <span>{p.costPer1kOutput === 0 ? "Free" : `$${p.costPer1kOutput}/1k`}</span>
+                        <span>{p.costPer1kOutput === 0 ? "Free" : `₹${(p.costPer1kOutput * 83).toFixed(4)}/1k`}</span>
                       </div>
                     </div>
                   ))}

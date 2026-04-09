@@ -170,11 +170,11 @@ export interface RecentSelection {
 }
 
 export const AI_PROVIDERS = [
-  { name: "Arcee Trinity", modelId: "arcee-ai/trinity-large-preview:free", provider: "OpenRouter", color: "hsl(280, 70%, 50%)", maxTokens: 4096, costPer1kInput: 0, costPer1kOutput: 0 },
-  { name: "StepFun 3.5", modelId: "stepfun/step-3.5-flash:free", provider: "OpenRouter", color: "hsl(142, 50%, 45%)", maxTokens: 128000, costPer1kInput: 0, costPer1kOutput: 0 },
+  { name: "Arcee Trinity", modelId: "arcee-ai/trinity-large-preview:free", provider: "OpenRouter", color: "hsl(280, 70%, 50%)", maxTokens: 4096, costPer1kInput: 0.0001, costPer1kOutput: 0.0003 },
+  { name: "StepFun 3.5", modelId: "stepfun/step-3.5-flash", provider: "OpenRouter", color: "hsl(142, 50%, 45%)", maxTokens: 128000, costPer1kInput: 0.00005, costPer1kOutput: 0.00015 },
   { name: "Mistral Large", modelId: "mistral-large-latest", provider: "Mistral AI", color: "hsl(24, 80%, 55%)", maxTokens: 32000, costPer1kInput: 0.008, costPer1kOutput: 0.024 },
-  { name: "GLM-4.5 Air", modelId: "z-ai/glm-4.5-air:free", provider: "OpenRouter", color: "hsl(48, 85%, 55%)", maxTokens: 128000, costPer1kInput: 0, costPer1kOutput: 0 },
-  { name: "Nemotron-3", modelId: "nvidia/nemotron-3-nano-30b-a3b:free", provider: "OpenRouter", color: "hsl(200, 70%, 50%)", maxTokens: 32000, costPer1kInput: 0, costPer1kOutput: 0 },
+  { name: "GLM-4.5 Air", modelId: "z-ai/glm-4.5-air", provider: "OpenRouter", color: "hsl(48, 85%, 55%)", maxTokens: 128000, costPer1kInput: 0.0005, costPer1kOutput: 0.001 },
+  { name: "Nemotron-3", modelId: "nvidia/nemotron-3-nano-30b-a3b", provider: "OpenRouter", color: "hsl(200, 70%, 50%)", maxTokens: 32000, costPer1kInput: 0.0015, costPer1kOutput: 0.0045 },
 ] as const;
 
 export const INPUT_CHAR_LIMIT = 10000;

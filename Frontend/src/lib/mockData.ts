@@ -44,9 +44,8 @@ export function generateMockResponses(
       const tokensPerSecond = duration > 0 ? totalTokens / duration : 0;
       const inputTokens = Math.ceil(promptHistoryTokens + currentPromptTokens);
       const outputTokens = Math.ceil(responseTokens);
-      const estimatedCost = Number(
-        ((inputTokens / 1000) * p.costPer1kInput + (outputTokens / 1000) * p.costPer1kOutput).toFixed(6)
-      );
+      const estimatedCostUsd = (inputTokens / 1000) * p.costPer1kInput + (outputTokens / 1000) * p.costPer1kOutput;
+      const estimatedCost = Number((estimatedCostUsd * 83).toFixed(4));
       responses.push({
         model: p.name,
         provider: p.provider,
@@ -137,7 +136,7 @@ export function simulateStreaming(
           duration: Number(((s.charIndex / s.fullResponse.length) * s.duration).toFixed(1)),
           isStreaming: s.isStreaming,
           isSelected: s.isSelected,
-          estimatedCost: Number(((Math.floor((s.charIndex / s.fullResponse.length) * s.tokens) / 1000) * 0.03).toFixed(5)),
+          estimatedCost: Number(((Math.floor((s.charIndex / s.fullResponse.length) * s.tokens) / 1000) * 0.03 * 83).toFixed(4)),
           maxTokens: s.maxTokens,
         })));
         if (streamState.every((s) => !s.isStreaming)) onComplete();

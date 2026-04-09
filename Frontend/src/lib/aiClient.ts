@@ -124,10 +124,7 @@ export async function executeBenchmark(
  * the server and are never sent to the browser.
  */
 export async function executeProxyBenchmark(
-    providerName: string,
-    modelId: string,
-    color: string,
-    displayName: string,
+    config: ProviderConfig,
     messages: { role: string; content: string }[],
     settings: BenchmarkingSettings,
     jwtToken: string | null,
@@ -139,11 +136,10 @@ export async function executeProxyBenchmark(
     }
 ): Promise<ModelResponse> {
     const startTime = Date.now();
-
-    const effectiveTemp = getModelTemperature(displayName, settings);
+    const effectiveTemp = getModelTemperature(config.modelName, settings);
 
     const requestBody = {
-        model: modelId,
+        model: config.id || config.modelName,
         messages,
         temperature: effectiveTemp,
         max_tokens: settings.maxTokens,
@@ -157,7 +153,7 @@ export async function executeProxyBenchmark(
     if (jwtToken) headers["Authorization"] = `Bearer ${jwtToken}`;
 
     try {
-        const proxyBaseUrl = options?.baseUrl || (providerName === "Mistral AI"
+        const proxyBaseUrl = options?.baseUrl || (config.providerName === "Mistral AI"
             ? "https://api.mistral.ai/v1"
             : "https://openrouter.ai/api/v1");
         const proxyEndpoint = options?.endpoint || "/chat/completions";
@@ -166,7 +162,7 @@ export async function executeProxyBenchmark(
             method: "POST",
             headers,
             body: JSON.stringify({
-                provider: providerName,
+                provider: config.providerName,
                 baseUrl: proxyBaseUrl,
                 endpoint: proxyEndpoint,
                 body: requestBody,
@@ -181,51 +177,13 @@ export async function executeProxyBenchmark(
         }
 
         const rawData = await response.json();
-        const latency = Date.now() - startTime;
-        const duration = latency / 1000;
-
-        // More robust token and response extraction based on common provider formats
-        let responseText = "";
-        let tokens = 0;
-
-        if (rawData.choices?.[0]?.message) {
-            // OpenAI / OpenRouter format
-            responseText = rawData.choices[0].message.content || "";
-            tokens = rawData.usage?.total_tokens ||
-                ((rawData.usage?.prompt_tokens || 0) + (rawData.usage?.completion_tokens || 0)) || 0;
-        } else if (rawData.content?.[0]?.text) {
-            // Anthropic format
-            responseText = rawData.content[0].text || "";
-            tokens = (rawData.usage?.input_tokens || 0) + (rawData.usage?.output_tokens || 0);
-        } else if (rawData.candidates?.[0]?.content?.parts?.[0]?.text) {
-            // Gemini format
-            responseText = rawData.candidates[0].content.parts[0].text || "";
-            tokens = rawData.usageMetadata?.totalTokenCount || 0;
-        } else {
-            // Fallback or unknown format
-            responseText = rawData.response || JSON.stringify(rawData);
-            tokens = rawData.usage?.total_tokens || 0;
-        }
-
-        const tokensPerSecond = duration > 0 ? Number((tokens / duration).toFixed(2)) : 0;
-
-        return {
-            model: displayName,
-            provider: providerName,
-            color,
-            response: responseText,
-            latency,
-            tokens,
-            tokensPerSecond,
-            duration: Number(duration.toFixed(1)),
-            isStreaming: false,
-        };
+        return normalizeResponse(config, rawData, Date.now() - startTime, startTime);
     } catch (error: any) {
-        console.error(`Proxy benchmark failed for ${providerName}:`, error);
+        console.error(`Proxy benchmark failed for ${config.providerName}:`, error);
         return {
-            model: displayName,
-            provider: providerName,
-            color,
+            model: config.id || config.modelName,
+            provider: config.providerName,
+            color: config.color || "hsl(0, 0%, 50%)",
             response: `Error: ${error.message}`,
             latency: Date.now() - startTime,
             tokens: 0,

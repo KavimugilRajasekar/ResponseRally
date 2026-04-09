@@ -7,6 +7,8 @@ AI_PROVIDERS.forEach(p => {
     PRICING_MAP[p.modelId] = { input: p.costPer1kInput, output: p.costPer1kOutput };
 });
 
+const USD_TO_INR = 83;
+
 export function normalizeResponse(
     config: ProviderConfig,
     rawResponse: any,
@@ -48,7 +50,8 @@ export function normalizeResponse(
     }
 
     const tokensPerSecond = duration > 0 ? totalTokens / duration : 0;
-    const cost = providerCost > 0 ? providerCost : calculateCost(config, inputTokens, outputTokens);
+    const costUsd = providerCost > 0 ? providerCost : calculateCostUsd(config, inputTokens, outputTokens);
+    const costInr = Number((costUsd * USD_TO_INR).toFixed(4));
 
     return {
         model: config.id || config.modelName,
@@ -60,16 +63,16 @@ export function normalizeResponse(
         tokensPerSecond: Number(tokensPerSecond.toFixed(2)),
         duration: Number(duration.toFixed(1)),
         isStreaming: false,
-        estimatedCost: cost,
+        estimatedCost: costInr,
         computeLevel: getComputeLevel(tokensPerSecond),
     };
 }
 
-function calculateCost(config: ProviderConfig, inputTokens: number, outputTokens: number): number {
+function calculateCostUsd(config: ProviderConfig, inputTokens: number, outputTokens: number): number {
     const modelKey = config.id || config.modelName;
     const pricing = PRICING_MAP[modelKey] || PRICING_MAP[config.providerName];
     if (!pricing) return 0;
     const inputCost = (inputTokens / 1000) * pricing.input;
     const outputCost = (outputTokens / 1000) * pricing.output;
-    return Number((inputCost + outputCost).toFixed(6));
+    return inputCost + outputCost;
 }

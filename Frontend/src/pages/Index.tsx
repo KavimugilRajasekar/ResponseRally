@@ -577,10 +577,7 @@ const Index = () => {
       if (model.custom) {
         // Route custom models through the server proxy to avoid CORS issues
         result = await executeProxyBenchmark(
-          model.custom.providerName,
-          model.custom.modelName,
-          model.custom.color || "hsl(0, 0%, 50%)",
-          model.custom.providerName,
+          model.custom,
           contextMessages,
           benchmarkingSettings,
           token,
@@ -592,19 +589,31 @@ const Index = () => {
         );
       } else if (model.standard) {
         try {
+          const standardConfig: ProviderConfig = {
+            id: model.standard.modelId,
+            providerName: model.standard.provider,
+            baseUrl: model.standard.provider === "Mistral AI" ? "https://api.mistral.ai/v1" : "https://openrouter.ai/api/v1",
+            chatEndpointPath: "/chat/completions",
+            apiKey: "", // Key is handled by backend proxy
+            authHeaderName: "Authorization",
+            authPrefix: "Bearer",
+            modelName: model.standard.name,
+            modelType: "chat",
+            requestFormatType: "openai",
+            supportsStreaming: true,
+            supportsSystemRole: true,
+            returnsUsage: true,
+            returnsCost: false,
+            isActive: true,
+            color: model.standard.color
+          };
+
           result = await executeProxyBenchmark(
-            model.standard.provider,
-            model.standard.modelId,
-            model.standard.color,
-            model.standard.name,
+            standardConfig,
             contextMessages,
             benchmarkingSettings,
             token
           );
-
-          if (model.standard.costPer1kOutput) {
-            result.estimatedCost = ((result.tokens || 0) / 1000) * model.standard.costPer1kOutput;
-          }
         } catch (error: any) {
           console.warn(`Falling back to mock for ${model.standard.name} due to:`, error.message);
           result = await new Promise<ModelResponse>((resolve) => {
@@ -767,29 +776,56 @@ const Index = () => {
         const today = new Date().toISOString().split('T')[0];
         const newMetrics = { ...p.modelMetrics };
         const newHistory = [...p.performanceHistory];
+        let newModelWins = { ...p.modelWins };
 
-        // Update total wins
-        const winCount = (newMetrics[selectedModelName]?.totalWins || 0) + 1;
-        newMetrics[selectedModelName] = {
-          ...(newMetrics[selectedModelName] || {
-            totalBenchmarked: 0,
-            activatedAt: new Date().toISOString(),
-            isActive: true
-          }),
-          totalWins: winCount
-        };
+        // 1. If there was a PREVIOUS winner for this message, we must decrement its win first
+        const previousWinner = targetConv.messages.find(m => m.id === messageId)?.selectedModel;
+        if (previousWinner && previousWinner !== selectedModelName) {
+          // Decrement old winner
+          if (newMetrics[previousWinner]) {
+            newMetrics[previousWinner] = {
+              ...newMetrics[previousWinner],
+              totalWins: Math.max(0, (newMetrics[previousWinner].totalWins || 0) - 1)
+            };
+          }
+          newModelWins[previousWinner] = Math.max(0, (newModelWins[previousWinner] || 0) - 1);
 
-        // Update daily wins
-        let dailyIdx = newHistory.findIndex(h => h.date === today);
-        if (dailyIdx === -1) {
-          newHistory.push({ date: today, metrics: {} });
-          dailyIdx = newHistory.length - 1;
+          // Update daily wins (decrement)
+          let dailyIdx = newHistory.findIndex(h => h.date === today);
+          if (dailyIdx !== -1) {
+            const daily = { ...newHistory[dailyIdx].metrics };
+            const modelDaily = daily[previousWinner] || { wins: 0, usages: 0 };
+            modelDaily.wins = Math.max(0, modelDaily.wins - 1);
+            daily[previousWinner] = modelDaily;
+            newHistory[dailyIdx].metrics = daily;
+          }
         }
-        const daily = { ...newHistory[dailyIdx].metrics };
-        const modelDaily = daily[selectedModelName] || { wins: 0, usages: 0 };
-        modelDaily.wins += 1;
-        daily[selectedModelName] = modelDaily;
-        newHistory[dailyIdx].metrics = daily;
+
+        // 2. Increment new winner (only if it's actually changing or was empty)
+        if (previousWinner !== selectedModelName) {
+          const winCount = (newMetrics[selectedModelName]?.totalWins || 0) + 1;
+          newMetrics[selectedModelName] = {
+            ...(newMetrics[selectedModelName] || {
+              totalBenchmarked: 0,
+              activatedAt: new Date().toISOString(),
+              isActive: true
+            }),
+            totalWins: winCount
+          };
+          newModelWins[selectedModelName] = (newModelWins[selectedModelName] || 0) + 1;
+
+          // Update daily wins (increment)
+          let dailyIdx = newHistory.findIndex(h => h.date === today);
+          if (dailyIdx === -1) {
+            newHistory.push({ date: today, metrics: {} });
+            dailyIdx = newHistory.length - 1;
+          }
+          const daily = { ...newHistory[dailyIdx].metrics };
+          const modelDaily = daily[selectedModelName] || { wins: 0, usages: 0 };
+          modelDaily.wins += 1;
+          daily[selectedModelName] = modelDaily;
+          newHistory[dailyIdx].metrics = daily;
+        }
 
         const newRecent = [
           {
@@ -800,14 +836,14 @@ const Index = () => {
           ...(p.recentSelections || [])
         ].slice(0, 10);
 
-        // Recalculate favorite model based on total wins across all models
+        // Recalculate favorite model
         const topModel = Object.entries(newMetrics)
           .sort(([, a], [, b]) => b.totalWins - a.totalWins)[0]?.[0] || selectedModelName;
 
         const updatedProfile = {
           ...p,
           favoriteModel: topModel,
-          modelWins: { ...p.modelWins, [selectedModelName]: (p.modelWins[selectedModelName] || 0) + 1 },
+          modelWins: newModelWins,
           modelMetrics: newMetrics,
           performanceHistory: newHistory,
           recentSelections: newRecent
@@ -850,7 +886,7 @@ const Index = () => {
     try {
       const token = localStorage.getItem('token');
       if (token && targetConvId) {
-        await fetch(`${API_URL}/api/conversations/${targetConvId}`, {
+        fetch(`${API_URL}/api/conversations/${targetConvId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -859,22 +895,95 @@ const Index = () => {
           body: JSON.stringify({
             messages: updatedMessages
           })
-        });
+        }).catch(e => console.error('Failed to update conversation:', e));
       }
     } catch (error) {
       console.error('Failed to update conversation:', error);
     }
-  }, [conversations]);
+  }, [activeConvId, conversations]);
 
   const handleReselectResponse = useCallback(async (messageId: string) => {
     const targetConv = conversations.find(c => c.messages.some(m => m.id === messageId));
     if (!targetConv) return;
     const targetConvId = targetConv.id || targetConv._id;
 
+    const targetMsg = targetConv.messages.find(m => m.id === messageId);
+    const previousWinner = targetMsg?.selectedModel;
+
     const updatedMessages = targetConv.messages.map((m) => {
       if (m.id !== messageId || !m.responses) return m;
       return { ...m, responses: m.responses.map((r) => ({ ...r, isSelected: false })), selectedModel: undefined };
     });
+
+    if (previousWinner) {
+      setProfile((p) => {
+        const today = new Date().toISOString().split('T')[0];
+        const newMetrics = { ...p.modelMetrics };
+        const newHistory = [...p.performanceHistory];
+        let newModelWins = { ...p.modelWins };
+
+        // 1. Decrement win count
+        if (newMetrics[previousWinner]) {
+          newMetrics[previousWinner] = {
+            ...newMetrics[previousWinner],
+            totalWins: Math.max(0, (newMetrics[previousWinner].totalWins || 0) - 1)
+          };
+        }
+        newModelWins[previousWinner] = Math.max(0, (newModelWins[previousWinner] || 0) - 1);
+
+        // 2. Update daily history
+        let dailyIdx = newHistory.findIndex(h => h.date === today);
+        if (dailyIdx !== -1) {
+          const daily = { ...newHistory[dailyIdx].metrics };
+          const modelDaily = daily[previousWinner] || { wins: 0, usages: 0 };
+          modelDaily.wins = Math.max(0, modelDaily.wins - 1);
+          daily[previousWinner] = modelDaily;
+          newHistory[dailyIdx].metrics = daily;
+        }
+
+        // 3. Remove from recent selections
+        const newRecent = (p.recentSelections || []).filter(
+          s => s.conversationId !== targetConvId || s.modelName !== previousWinner
+        );
+
+        // 4. Recalculate favorite model
+        const topModel = Object.entries(newMetrics)
+          .sort(([, a], [, b]) => b.totalWins - a.totalWins)[0]?.[0] || "";
+
+        const updatedProfile = {
+          ...p,
+          favoriteModel: topModel,
+          modelWins: newModelWins,
+          modelMetrics: newMetrics,
+          performanceHistory: newHistory,
+          recentSelections: newRecent
+        };
+
+        // Persist stats update
+        const token = localStorage.getItem('token');
+        if (token && updatedProfile.id) {
+          fetch(`${API_URL}/api/conversations/update-stats/${updatedProfile.id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              totalPrompts: updatedProfile.totalPrompts,
+              totalTokensUsed: updatedProfile.totalTokensUsed,
+              totalCostEstimate: updatedProfile.totalCostEstimate,
+              modelWins: updatedProfile.modelWins,
+              favoriteModel: updatedProfile.favoriteModel,
+              modelMetrics: updatedProfile.modelMetrics,
+              performanceHistory: updatedProfile.performanceHistory,
+              recentSelections: updatedProfile.recentSelections
+            })
+          }).catch(e => console.error('Failed to update stats:', e));
+        }
+
+        return updatedProfile;
+      });
+    }
 
     setConversations((prev) =>
       prev.map((c) =>
@@ -887,7 +996,7 @@ const Index = () => {
     try {
       const token = localStorage.getItem('token');
       if (token && targetConvId) {
-        await fetch(`${API_URL}/api/conversations/${targetConvId}`, {
+        fetch(`${API_URL}/api/conversations/${targetConvId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -896,7 +1005,7 @@ const Index = () => {
           body: JSON.stringify({
             messages: updatedMessages
           })
-        });
+        }).catch(e => console.error('Failed to update conversation:', e));
       }
     } catch (error) {
       console.error('Failed to update conversation:', error);
@@ -942,21 +1051,33 @@ const Index = () => {
     let result: ModelResponse;
     try {
       if (standard) {
+        const standardConfig: ProviderConfig = {
+          id: standard.modelId,
+          providerName: standard.provider,
+          baseUrl: standard.provider === "Mistral AI" ? "https://api.mistral.ai/v1" : "https://openrouter.ai/api/v1",
+          chatEndpointPath: "/chat/completions",
+          apiKey: "", // Key is handled by backend proxy
+          authHeaderName: "Authorization",
+          authPrefix: "Bearer",
+          modelName: standard.name,
+          modelType: "chat",
+          requestFormatType: "openai",
+          supportsStreaming: true,
+          supportsSystemRole: true,
+          returnsUsage: true,
+          returnsCost: false,
+          isActive: true,
+          color: standard.color
+        };
         result = await executeProxyBenchmark(
-          standard.provider,
-          standard.modelId,
-          standard.color,
-          standard.name,
+          standardConfig,
           contextMessages,
           targetMsg.benchmarkingSettings || benchmarkingSettings,
           token
         );
       } else if (custom) {
         result = await executeProxyBenchmark(
-          custom.providerName,
-          custom.modelName,
-          custom.color || "hsl(0, 0%, 50%)",
-          custom.providerName,
+          custom,
           contextMessages,
           targetMsg.benchmarkingSettings || benchmarkingSettings,
           token,

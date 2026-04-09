@@ -47,8 +47,33 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     const { email, password, name } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
+    
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      if (existingUser.isVerified) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+      // If unverified, allow them to re-register (update password and get new OTP)
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      const otp = crypto.randomInt(100000, 999999).toString();
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+      const user = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          password: hashedPassword,
+          name,
+          otp,
+          otpExpires
+        }
+      });
+
+      await sendOTP(email, otp);
+      return res.status(200).json({
+        message: 'Account pending verification. New OTP sent.',
+        requiresVerification: true,
+        userId: user.id
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -152,6 +177,26 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      // Resend OTP if needed, or just tell them to verify
+      const otp = crypto.randomInt(100000, 999999).toString();
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { otp, otpExpires }
+      });
+
+      await sendOTP(email, otp);
+
+      return res.status(200).json({ 
+        message: 'Email not verified. A new OTP has been sent.', 
+        requiresVerification: true,
+        userId: user.id 
+      });
+    }
 
     const token = jwt.sign(
       { userId: user.id },

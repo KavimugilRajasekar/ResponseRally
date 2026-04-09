@@ -1,6 +1,6 @@
 import { ModelResponse, BenchmarkingMode, getComputeLevel } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Zap, Hash, Clock, DollarSign, BarChart3, HelpCircle, Cpu } from "lucide-react";
+import { Zap, Hash, Clock, IndianRupee, BarChart3, HelpCircle, Cpu } from "lucide-react";
 interface MetricsMatrixProps {
     responses: ModelResponse[];
     mode?: BenchmarkingMode;
@@ -82,21 +82,21 @@ export function MetricsMatrix({ responses, mode, windowSize }: MetricsMatrixProp
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         <div className="flex items-center justify-end gap-1 text-[11px] font-mono text-foreground font-bold">
-                                            <DollarSign className="h-3 w-3 text-accent" />
-                                            {r.estimatedCost === 0 ? "Free" : `$${(r.estimatedCost ?? 0).toFixed(6)}`}
+                                            <IndianRupee className="h-3 w-3 text-accent" />
+                                            {r.estimatedCost === 0 ? "Free" : `₹${(r.estimatedCost ?? 0).toFixed(4)}`}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {(() => {
                                             const compute = r.computeLevel || getComputeLevel(r.tokensPerSecond || 0);
                                             const colorClass = compute === "High"
-                                                ? "text-metric-positive bg-metric-positive/10"
+                                                ? "text-destructive bg-destructive/10"
                                                 : compute === "Medium"
                                                     ? "text-metric-warning bg-metric-warning/10"
-                                                    : "text-destructive bg-destructive/10";
+                                                    : "text-metric-positive bg-metric-positive/10";
                                             return (
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <Cpu className={cn("h-3 w-3", compute === "High" ? "text-metric-positive" : compute === "Medium" ? "text-metric-warning" : "text-destructive")} />
+                                                    <Cpu className={cn("h-3 w-3", compute === "High" ? "text-destructive" : compute === "Medium" ? "text-metric-warning" : "text-metric-positive")} />
                                                     <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", colorClass)}>
                                                         {compute}
                                                     </span>
