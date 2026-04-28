@@ -21,7 +21,7 @@
 
 ## ✨ Key Features
 
-ResponseRally is a precision tool designed for AI researchers and developers to evaluate model performance under real-world conditions.
+ResponseRally is a benchmarking tool designed for AI researchers and developers to evaluate model performance under real-world conditions.
 
 - 🚀 **Parallel Execution**: Submit a single prompt to N models simultaneously; no sequential waiting.
 - 📊 **Metrics Performance Matrix**: Instant comparison of Latency (ms), Token Count, Throughput (tokens/s), and Cost ($).
